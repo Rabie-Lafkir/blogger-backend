@@ -1,37 +1,81 @@
 const Article = require('../models/Article');
-const slugify = require('../utils/slugify');
+const slugify = require('slugify');
 
 exports.createArticle = async (req, res) => {
   try {
     const { title, content, category, tags } = req.body;
-    const slug = slugify(title);
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
+    const slug = slugify(title, { lower: true });
 
-    if (!image) return res.status(400).json({ error: 'Image is required' });
+    const coverImage = req.file?.filename;
+    if (!coverImage) return res.status(400).json({ error: 'Cover image is required' });
 
-    const article = await Article.create({
+    const article = new Article({
       title,
-      slug,
       content,
-      image,
       category,
       tags,
-      author: req.userId,
+      author: req.user.id,
+      slug,
+      coverImage,
     });
 
+    await article.save();
     res.status(201).json(article);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 };
 
-exports.getAllArticles = async (_req, res) => {
-  const articles = await Article.find().populate('author', 'username');
-  res.json(articles);
+exports.getArticles = async (req, res) => {
+  try {
+    const articles = await Article.find()
+      .populate('author', 'username')
+      .populate('category', 'name')
+      .sort({ createdAt: -1 });
+    res.json(articles);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
 
-exports.getArticleBySlug = async (req, res) => {
-  const article = await Article.findOne({ slug: req.params.slug }).populate('author', 'username');
-  if (!article) return res.status(404).json({ error: 'Not found' });
-  res.json(article);
+exports.getArticle = async (req, res) => {
+  try {
+    const article = await Article.findOne({ slug: req.params.slug })
+      .populate('author', 'username')
+      .populate('category', 'name');
+    if (!article) return res.status(404).json({ error: 'Not found' });
+    res.json(article);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateArticle = async (req, res) => {
+  try {
+    const { title, content, category, tags } = req.body;
+    const article = await Article.findById(req.params.id);
+    if (!article) return res.status(404).json({ error: 'Not found' });
+
+    if (title) article.title = title;
+    if (content) article.content = content;
+    if (category) article.category = category;
+    if (tags) article.tags = tags;
+    if (title) article.slug = slugify(title, { lower: true });
+    if (req.file) article.coverImage = req.file.filename;
+
+    await article.save();
+    res.json(article);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteArticle = async (req, res) => {
+  try {
+    const article = await Article.findByIdAndDelete(req.params.id);
+    if (!article) return res.status(404).json({ error: 'Not found' });
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 };
