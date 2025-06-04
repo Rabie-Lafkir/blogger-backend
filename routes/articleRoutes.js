@@ -1,13 +1,29 @@
 const express = require('express');
 const router = express.Router();
-const articleController = require('../controllers/articleController');
-const { authenticate } = require('../middleware/auth');
-const upload = require('../middleware/upload'); // multer middleware
+const {
+  createArticle,
+  getArticles,
+  getArticle,
+  updateArticle,
+  deleteArticle
+} = require('../controllers/articleController');
 
-router.post('/', authenticate, upload.single('coverImage'), articleController.createArticle);
-router.get('/', articleController.getArticles);
-router.get('/:slug', articleController.getArticle);
-router.put('/:id', authenticate, upload.single('coverImage'), articleController.updateArticle);
-router.delete('/:id', authenticate, articleController.deleteArticle);
+const authMiddleware = require('../middleware/authMiddleware');
+const uploadMiddleware = require('../middleware/uploadMiddleware');
+
+// ✅ CREATE Article (protected + image upload)
+router.post('/', authMiddleware, uploadMiddleware.single('image'), createArticle);
+
+// ✅ READ all Articles (public)
+router.get('/', getArticles);
+
+// ✅ READ single Article by slug (public)
+router.get('/:slug', getArticle);
+
+// ✅ UPDATE Article (protected + image upload optional)
+router.put('/:slug', authMiddleware, uploadMiddleware.single('image'), updateArticle);
+
+// ✅ DELETE Article (protected)
+router.delete('/:slug', authMiddleware, deleteArticle);
 
 module.exports = router;
